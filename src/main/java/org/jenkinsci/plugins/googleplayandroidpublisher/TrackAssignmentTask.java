@@ -1,9 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.api.services.androidpublisher.model.Apk;
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.model.BuildListener;
-import hudson.model.TaskListener;
+import static hudson.Util.join;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -12,16 +9,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.TreeSet;
 
-import static hudson.Util.join;
+import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.Apk;
+import com.google.api.services.androidpublisher.model.ApkListing;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+
+import hudson.model.TaskListener;
 
 class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
     private final Collection<Integer> versionCodes;
+    private final RecentChanges[] recentChangeList;
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                        Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage) {
+            Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage, RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.versionCodes = versionCodes;
+        this.recentChangeList = recentChangeList;
     }
 
     @Override
@@ -64,6 +68,17 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
         // Move the version codes to the configured track
         assignApksToTrack(versionCodes, track, rolloutFraction);
+
+        // Apply recent changes text to the APK(s), if provided
+        if (recentChangeList != null) {
+            for (Integer versionCode : versionCodes) {
+                AndroidPublisher.Edits.Apklistings listings = editService.apklistings();
+                for (RecentChanges changes : recentChangeList) {
+                    ApkListing listing = new ApkListing().setLanguage(changes.language).setRecentChanges(changes.text);
+                    listings.update(applicationId, editId, versionCode, changes.language, listing).execute();
+                }
+            }
+        }
 
         // Commit the changes
         try {

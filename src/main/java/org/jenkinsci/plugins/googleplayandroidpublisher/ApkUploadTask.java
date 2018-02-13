@@ -1,15 +1,10 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.FileContent;
-import com.google.api.services.androidpublisher.AndroidPublisher;
-import com.google.api.services.androidpublisher.model.Apk;
-import com.google.api.services.androidpublisher.model.ApkListing;
-import com.google.api.services.androidpublisher.model.ExpansionFile;
-import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.FilePath;
-import hudson.model.TaskListener;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_PATCH;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetadata;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,14 +16,22 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeSet;
-import net.dongliu.apk.parser.bean.ApkMeta;
+
 import org.apache.commons.codec.digest.DigestUtils;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_PATCH;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetadata;
+import org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
+
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.FileContent;
+import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.Apk;
+import com.google.api.services.androidpublisher.model.ApkListing;
+import com.google.api.services.androidpublisher.model.ExpansionFile;
+import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+
+import hudson.FilePath;
+import hudson.model.TaskListener;
+import net.dongliu.apk.parser.bean.ApkMeta;
 
 class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
@@ -45,7 +48,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
                   FilePath workspace, List<FilePath> apkFiles, Map<FilePath, FilePath> apkFilesToMappingFiles,
                   Map<Integer, ExpansionFileSet> expansionFiles, boolean usePreviousExpansionFilesIfMissing,
-                  ReleaseTrack track, double rolloutPercentage, ApkPublisher.RecentChanges[] recentChangeList) {
+            ReleaseTrack track, double rolloutPercentage, RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.workspace = workspace;
         this.apkFiles = apkFiles;

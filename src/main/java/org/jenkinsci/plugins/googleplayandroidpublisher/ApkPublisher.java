@@ -1,27 +1,19 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import hudson.AbortException;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.AbstractDescribableImpl;
-import hudson.model.Descriptor;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.TaskListener;
-import hudson.tasks.Publisher;
-import hudson.util.ComboBoxModel;
-import hudson.util.FormValidation;
-import net.dongliu.apk.parser.exception.ParserException;
-import org.jenkinsci.Symbol;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.export.Exported;
+import static hudson.Util.fixEmptyAndTrim;
+import static hudson.Util.join;
+import static hudson.Util.tryParseNumber;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApplicationId;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -38,22 +30,24 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.zip.ZipException;
 
-import static hudson.Util.fixEmptyAndTrim;
-import static hudson.Util.join;
-import static hudson.Util.tryParseNumber;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_LANGUAGE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.SUPPORTED_LANGUAGES;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApplicationId;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
+import javax.annotation.Nonnull;
+
+import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import hudson.tasks.Publisher;
+import net.dongliu.apk.parser.exception.ParserException;
 
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
@@ -407,54 +401,6 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         public void setPatchFile(FilePath patchFile) {
             this.patchFile = patchFile;
-        }
-
-    }
-
-    public static final class RecentChanges extends AbstractDescribableImpl<RecentChanges> implements Serializable {
-
-        private static final long serialVersionUID = 1;
-
-        @Exported
-        public final String language;
-
-        @Exported
-        public final String text;
-
-        @DataBoundConstructor
-        public RecentChanges(String language, String text) {
-            this.language = language;
-            this.text = text;
-        }
-
-        @Extension
-        public static class DescriptorImpl extends Descriptor<RecentChanges> {
-
-            @Override
-            public String getDisplayName() {
-                return "Recent changes";
-            }
-
-            public ComboBoxModel doFillLanguageItems() {
-                return new ComboBoxModel(SUPPORTED_LANGUAGES);
-            }
-
-            public FormValidation doCheckLanguage(@QueryParameter String value) {
-                value = fixEmptyAndTrim(value);
-                if (value != null && !value.matches(REGEX_LANGUAGE) && !value.matches(REGEX_VARIABLE)) {
-                    return FormValidation.warning("Should be a language code like 'be' or 'en-GB'");
-                }
-                return FormValidation.ok();
-            }
-
-            public FormValidation doCheckText(@QueryParameter String value) {
-                value = fixEmptyAndTrim(value);
-                if (value != null && value.length() > 500) {
-                    return FormValidation.error("Recent changes text must be 500 characters or fewer");
-                }
-                return FormValidation.ok();
-            }
-
         }
 
     }

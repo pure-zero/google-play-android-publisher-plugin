@@ -37,5 +37,9 @@
       description="${%Only applies to the 'production' release track}">
     <f:combobox style="width:15em" />
   </f:entry>
+  
+  <f:entry title="${%Recent changes}" field="recentChangeList">
+    <f:repeatableProperty field="recentChangeList" add="${%Add language...}" minimum="0" />
+  </f:entry>
 
 </j:jelly>

@@ -1,23 +1,15 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import hudson.AbortException;
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.model.Run;
-import hudson.model.TaskListener;
-import hudson.tasks.Builder;
-import net.dongliu.apk.parser.exception.ParserException;
-import org.jenkinsci.Symbol;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
+import static hudson.Util.fixEmptyAndTrim;
+import static hudson.Util.tryParseNumber;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -30,15 +22,23 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipException;
 
-import static hudson.Util.fixEmptyAndTrim;
-import static hudson.Util.tryParseNumber;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
+import javax.annotation.Nonnull;
+
+import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import hudson.tasks.Builder;
+import net.dongliu.apk.parser.exception.ParserException;
 
 public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
@@ -59,6 +59,9 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
     @DataBoundSetter
     private String rolloutPercentage;
+
+    @DataBoundSetter
+    private RecentChanges[] recentChangeList;
 
     @DataBoundConstructor
     public ReleaseTrackAssignmentBuilder() {}
@@ -116,6 +119,23 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
         // If no valid numeric value was set, we will roll out to 100%
         return tryParseNumber(expand(pct), DEFAULT_PERCENTAGE).doubleValue();
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public RecentChanges[] getRecentChangeList() {
+        return recentChangeList;
+    }
+
+    private RecentChanges[] getExpandedRecentChangesList() throws IOException, InterruptedException {
+        if (recentChangeList == null) {
+            return null;
+        }
+        RecentChanges[] expanded = new RecentChanges[recentChangeList.length];
+        for (int i = 0; i < recentChangeList.length; i++) {
+            RecentChanges r = recentChangeList[i];
+            expanded[i] = new RecentChanges(expand(r.language), expand(r.text));
+        }
+        return expanded;
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
@@ -205,7 +225,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
-                            fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue()));
+                    fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue(), getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("- No changes have been applied to the Google Play account");
